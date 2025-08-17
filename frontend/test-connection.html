@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Connection - AFLA-DRY 360°</title>
+</head>
+<body>
+    <h1>Test Backend Connection</h1>
+    
+    <div>
+        <h2>Test Health Check</h2>
+        <button onclick="testHealth()">Test Health Endpoint</button>
+        <div id="health-result"></div>
+    </div>
+    
+    <div>
+        <h2>Test Signup</h2>
+        <form id="test-signup">
+            <input type="text" id="test-username" placeholder="Username" value="testuser" required><br><br>
+            <input type="email" id="test-email" placeholder="Email" value="test@example.com" required><br><br>
+            <input type="text" id="test-fullname" placeholder="Full Name" value="Test User" required><br><br>
+            <input type="password" id="test-password" placeholder="Password" value="test123" required><br><br>
+            <button type="submit">Test Signup</button>
+        </form>
+        <div id="signup-result"></div>
+    </div>
+
+    <script>
+        async function testHealth() {
+            const resultDiv = document.getElementById('health-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                console.log('Testing health endpoint...');
+                const response = await fetch('http://localhost:5000/api/health');
+                console.log('Response:', response);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<p style="color: green;">✅ Success! ${data.message}</p>`;
+                    console.log('Health check successful:', data);
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">❌ Failed with status: ${response.status}</p>`;
+                    console.error('Health check failed:', response.status);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+                console.error('Health check error:', error);
+            }
+        }
+
+        document.getElementById('test-signup').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resultDiv = document.getElementById('signup-result');
+            resultDiv.innerHTML = 'Testing signup...';
+            
+            const signupData = {
+                username: document.getElementById('test-username').value,
+                email: document.getElementById('test-email').value,
+                full_name: document.getElementById('test-fullname').value,
+                password: document.getElementById('test-password').value
+            };
+            
+            try {
+                console.log('Testing signup with:', signupData);
+                const response = await fetch('http://localhost:5000/api/auth/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(signupData)
+                });
+                
+                console.log('Signup response:', response);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<p style="color: green;">✅ Signup successful! ${data.message}</p>`;
+                    console.log('Signup successful:', data);
+                } else {
+                    const errorData = await response.json();
+                    resultDiv.innerHTML = `<p style="color: red;">❌ Signup failed: ${errorData.message}</p>`;
+                    console.error('Signup failed:', errorData);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ Signup error: ${error.message}</p>`;
+                console.error('Signup error:', error);
+            }
+        });
+
+        // Auto-test health on page load
+        window.addEventListener('load', () => {
+            console.log('Page loaded, testing connection...');
+            testHealth();
+        });
+    </script>
+</body>
+</html>

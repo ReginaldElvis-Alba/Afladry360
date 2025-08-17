@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AFLA-DRY 360°</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- HEADER -->
+    <header>
+        <a href="index.html" class="logo"><i class="ri-home-heart-line"></i> AFLA-DRY 360°</a>
+        <div id="menu-icon">
+            <i class="ri-menu-line"></i>
+        </div>
+        <ul class="navbar">
+            <li><a href="index.html#home">Home</a></li>
+            <li><a href="index.html#about">About</a></li>
+            <li><a href="index.html#services">Services</a></li>
+            <li><a href="index.html#how-it-works">How it works</a></li>
+            <li><a href="index.html#contact">Contact</a></li>
+        </ul>
+        <div class="background">
+            <img src="cover-bg.jpg" alt="Logo Icon" />
+        </div>
+    </header>
+
+    <!-- DASHBOARD SECTION -->
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <nav class="dashboard-sidebar">
+            <div class="sidebar-header">
+                <div class="user-profile">
+                    <img src="farmer about.webp" alt="User Profile" class="profile-image">
+                    <div class="user-info">
+                        <h3 id="user-name">Farmer Name</h3>
+                        <p id="user-email">farmer@email.com</p>
+                    </div>
+                </div>
+            </div>
+            
+            <ul class="sidebar-menu">
+                <li class="active">
+                    <a href="#overview"><i class="ri-dashboard-line"></i> Overview</a>
+                </li>
+                <li>
+                    <a href="#sensors"><i class="ri-sensor-line"></i> Sensors</a>
+                </li>
+                <li>
+                    <a href="#data"><i class="ri-bar-chart-2-line"></i> Farm Data</a>
+                </li>
+                <li>
+                    <a href="#alerts"><i class="ri-notification-3-line"></i> Alerts</a>
+                </li>
+                <li>
+                    <a href="#profile"><i class="ri-user-line"></i> Profile</a>
+                </li>
+                <li>
+                    <a href="#settings"><i class="ri-settings-3-line"></i> Settings</a>
+                </li>
+                <li class="logout-item">
+                    <a href="#" id="logout-btn"><i class="ri-logout-box-line"></i> Logout</a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Dashboard Content -->
+        <main class="dashboard-main">
+            <!-- User Welcome Header -->
+            <div class="welcome-header">
+                <div class="welcome-content">
+                    <h1 id="welcome-title">Welcome back, <span id="welcome-user-name">Farmer</span>! 👋</h1>
+                    <p id="welcome-subtitle">Here's what's happening with your farm today</p>
+                </div>
+                <div class="welcome-actions">
+                    <button class="btn-primary" onclick="showModal('add-sensor-modal')">
+                        <i class="ri-add-line"></i> Add Sensor
+                    </button>
+                    <button class="btn-secondary">
+                        <i class="ri-download-line"></i> Export Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Top Stats Bar -->
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <i class="ri-thermometer-line"></i>
+                    <div class="stat-info">
+                        <h4>Temperature</h4>
+                        <p id="current-temp">--°C</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="ri-water-percent-line"></i>
+                    <div class="stat-info">
+                        <h4>Humidity</h4>
+                        <p id="current-humidity">--%</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="ri-drop-line"></i>
+                    <div class="stat-info">
+                        <h4>Moisture</h4>
+                        <p id="current-moisture">--%</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="ri-alert-line"></i>
+                    <div class="stat-info">
+                        <h4>Aflatoxin Level</h4>
+                        <p id="current-aflatoxin">-- ppb</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Grid -->
+            <div class="dashboard-grid">
+                <!-- Metric Gauges -->
+                <div class="dashboard-card gauge-card">
+                    <h3><i class="ri-speed-line"></i> Real-time Metrics</h3>
+                    <div class="gauge-container">
+                        <div class="gauge-item">
+                            <canvas id="temp-gauge" width="150" height="150"></canvas>
+                            <p>Temperature</p>
+                        </div>
+                        <div class="gauge-item">
+                            <canvas id="humidity-gauge" width="150" height="150"></canvas>
+                            <p>Humidity</p>
+                        </div>
+                        <div class="gauge-item">
+                            <canvas id="moisture-gauge" width="150" height="150"></canvas>
+                            <p>Moisture</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Status -->
+                <div class="dashboard-card status-card">
+                    <h3><i class="ri-server-line"></i> System Status</h3>
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <span class="status-label">Sensors Connected</span>
+                            <span class="status-value" id="sensors-connected">3/3</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Active Nodes</span>
+                            <span class="status-value" id="active-nodes">5</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Total Tokens</span>
+                            <span class="status-value" id="total-tokens">1,250</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Token Balance</span>
+                            <span class="status-value" id="token-balance">850</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Users Found</span>
+                            <span class="status-value" id="users-found">12</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">System Health</span>
+                            <span class="status-value healthy" id="system-health">Healthy</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Sensor Readings -->
+                <div class="dashboard-card readings-card">
+                    <h3><i class="ri-time-line"></i> Recent Sensor Readings</h3>
+                    <div class="readings-list" id="readings-list">
+                        <!-- Readings will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Sensor Management -->
+                <div class="dashboard-card sensors-card">
+                    <h3><i class="ri-sensor-line"></i> Sensor Management</h3>
+                    <div class="sensor-controls">
+                        <button class="btn-primary" id="add-sensor-btn">
+                            <i class="ri-add-line"></i> Add New Sensor
+                        </button>
+                        <button class="btn-secondary" id="calibrate-btn">
+                            <i class="ri-tools-line"></i> Calibrate Sensors
+                        </button>
+                    </div>
+                    <div class="sensor-list" id="sensor-list">
+                        <!-- Sensors will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Aflatoxin Alert Panel -->
+                <div class="dashboard-card alert-card">
+                    <h3><i class="ri-alert-line"></i> Aflatoxin Alerts</h3>
+                    <div class="alert-panel" id="alert-panel">
+                        <!-- Alerts will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="dashboard-card actions-card">
+                    <h3><i class="ri-flashlight-line"></i> Quick Actions</h3>
+                    <div class="action-buttons">
+                        <button class="action-btn" id="export-data-btn">
+                            <i class="ri-download-line"></i> Export Data
+                        </button>
+                        <button class="action-btn" id="generate-report-btn">
+                            <i class="ri-file-chart-line"></i> Generate Report
+                        </button>
+                        <button class="action-btn" id="contact-support-btn">
+                            <i class="ri-customer-service-line"></i> Contact Support
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Sensor Modal -->
+    <div class="modal" id="add-sensor-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Sensor</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="add-sensor-form">
+                    <div class="form-group">
+                        <label for="sensor-name">Sensor Name</label>
+                        <input type="text" id="sensor-name" name="sensor-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sensor-type">Sensor Type</label>
+                        <select id="sensor-type" name="sensor-type" required>
+                            <option value="">Select Type</option>
+                            <option value="temperature">Temperature</option>
+                            <option value="humidity">Humidity</option>
+                            <option value="moisture">Moisture</option>
+                            <option value="aflatoxin">Aflatoxin</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sensor-location">Location</label>
+                        <input type="text" id="sensor-location" name="sensor-location" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sensor-description">Description</label>
+                        <textarea id="sensor-description" name="sensor-description" rows="3"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="cancel-sensor-btn">Cancel</button>
+                        <button type="submit" class="btn-primary">Add Sensor</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
