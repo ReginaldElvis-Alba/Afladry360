@@ -370,3 +370,4 @@ router.get('/:id/readings', authenticateToken, async (req, res) => {
 
 module.exports = router;
 
+
