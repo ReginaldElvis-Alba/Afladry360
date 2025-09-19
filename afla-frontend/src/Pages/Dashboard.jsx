@@ -1,66 +1,120 @@
 import { useState, useEffect } from 'react';
+import axios from "axios";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Thermometer, Droplets, Fan, Upload, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 
 const Dashboard = () => {
   const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [fanSpeed, setFanSpeed] = useState(50);
   const [isFanOn, setIsFanOn] = useState(false);
-  const [aflatoxinLevel, setAflatoxinLevel] = useState(12.5);
-  const [currentTemp, setCurrentTemp] = useState(24.5);
-  const [currentHumidity, setCurrentHumidity] = useState(65.2);
+  const [aflatoxinLevel, setAflatoxinLevel] = useState(0);
+  const [currentTemp, setCurrentTemp] = useState(0);
+  const [currentHumidity, setCurrentHumidity] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [sensorData, setSensorData] = useState([]);
+  const [lastFetch, setLastFetch] = useState(null);
 
-  // Sample data for humidity-temp graph
-  const [sensorData, setSensorData] = useState([
-    { time: '00:00', temperature: 22.1, humidity: 68.5 },
-    { time: '02:00', temperature: 21.8, humidity: 70.2 },
-    { time: '04:00', temperature: 23.2, humidity: 66.8 },
-    { time: '06:00', temperature: 24.5, humidity: 65.2 },
-    { time: '08:00', temperature: 26.1, humidity: 62.4 },
-    { time: '10:00', temperature: 27.8, humidity: 59.1 },
-    { time: '12:00', temperature: 28.9, humidity: 56.7 },
-    { time: '14:00', temperature: 29.2, humidity: 55.3 },
-    { time: '16:00', temperature: 28.4, humidity: 57.8 },
-    { time: '18:00', temperature: 26.7, humidity: 61.2 },
-    { time: '20:00', temperature: 25.1, humidity: 63.9 },
-    { time: '22:00', temperature: 24.5, humidity: 65.2 }
-  ]);
+  // Function to fetch data from API
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      // Replace with your actual API endpoint
+      const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/all-data`);
+      console.log(response);
+      const data = response.data;
 
-  // Simulate real-time data updates
-  useEffect(() => {
-    if (isConnected) {
-      const interval = setInterval(() => {
-        const newTemp = 20 + Math.random() * 15;
-        const newHumidity = 45 + Math.random() * 30;
-        const newAflatoxin = 8 + Math.random() * 20;
-        
-        setCurrentTemp(parseFloat(newTemp.toFixed(1)));
-        setCurrentHumidity(parseFloat(newHumidity.toFixed(1)));
-        setAflatoxinLevel(parseFloat(newAflatoxin.toFixed(1)));
+      if (data && data.length > 0) {
+        // Process the API data
+        const processedData = data.map(item => {
+          const timestamp = new Date(item.timestamp);
+          const timeStr = timestamp.getHours().toString().padStart(2, '0') + ':' +
+                         timestamp.getMinutes().toString().padStart(2, '0');
 
-        // Update chart data
-        setSensorData(prev => {
-          const newData = [...prev.slice(1)];
-          const now = new Date();
-          const timeStr = now.getHours().toString().padStart(2, '0') + ':' + 
-                         now.getMinutes().toString().padStart(2, '0');
-          
-          newData.push({
+          return {
             time: timeStr,
-            temperature: newTemp,
-            humidity: newHumidity
-          });
-          return newData;
+            temperature: parseFloat(item.temperature),
+            humidity: parseFloat(item.humidity),
+             moisture_content: item.moisture_content ? parseFloat(item.moisture_content) * 100 : null,
+            timestamp: timestamp
+          };
         });
-      }, 3000);
 
-      return () => clearInterval(interval);
+        // Sort by timestamp to ensure proper order
+        processedData.sort((a, b) => a.timestamp - b.timestamp);
+
+        // Update chart data (keep last 20 points for better visualization)
+        setSensorData(processedData.slice(-20));
+
+        // Update current readings with the latest data
+        const latestReading = processedData[processedData.length - 1];
+        if (latestReading) {
+          setCurrentTemp(latestReading.temperature);
+          setCurrentHumidity(latestReading.humidity);
+
+          // Calculate aflatoxin level based on temperature and humidity
+          const aflatoxin = calculateAflatoxinLevel(latestReading.temperature, latestReading.humidity);
+          setAflatoxinLevel(parseFloat(aflatoxin.toFixed(1)));
+        }
+
+        setLastFetch(new Date());
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  // Calculate aflatoxin level based on temperature and humidity
+  const calculateAflatoxinLevel = (temp, humidity) => {
+    // This is a simplified calculation - replace with your actual formula
+    // Higher temperature and humidity generally increase aflatoxin risk
+    const tempFactor = Math.max(0, (temp - 20) / 5);
+    const humidityFactor = Math.max(0, (humidity - 60) / 10);
+    return Math.min(30, tempFactor * humidityFactor * 8);
+  };
+
+  // Auto-refresh data when connected
+  useEffect(() => {
+    let interval;
+    if (isConnected) {
+      // Fetch data immediately when connected
+      fetchData().catch(console.error);
+      
+      // Set up auto-refresh every 30 seconds
+      interval = setInterval(() => {
+        fetchData().catch(console.error);
+      }, 30000);
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, [isConnected]);
 
-  const handleConnect = () => {
-    setIsConnected(!isConnected);
+  const handleConnect = async () => {
+    if (!isConnected) {
+      setIsLoading(true);
+      try {
+        await fetchData();
+        setIsConnected(true);
+      } catch (error) {
+        console.error('Failed to connect:', error);
+        alert('Failed to connect to server. Please check your connection.');
+      }
+      setIsLoading(false);
+    } else {
+      setIsConnected(false);
+      setSensorData([]);
+      setLastFetch(null);
+      setCurrentTemp(0);
+      setCurrentHumidity(0);
+      setAflatoxinLevel(0);
+    }
   };
 
   const handleFanToggle = () => {
@@ -72,13 +126,38 @@ const Dashboard = () => {
   };
 
   const handleUploadToBlockchain = async () => {
+    if (!isConnected || sensorData.length === 0) {
+      alert('No data available to upload. Please connect and fetch data first.');
+      return;
+    }
+
     setIsUploading(true);
     
-    // Simulate blockchain upload
-    setTimeout(() => {
+    try {
+      // Replace with your actual blockchain upload endpoint
+      const response = await fetch('/api/blockchain/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sensorData: sensorData,
+          timestamp: new Date().toISOString(),
+          deviceId: 'AflaDry360_ESP8266'
+        })
+      });
+
+      if (response.ok) {
+        alert('Data successfully uploaded to blockchain!');
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Blockchain upload failed:', error);
+      alert('Failed to upload to blockchain. Please try again.');
+    } finally {
       setIsUploading(false);
-      alert('Data successfully uploaded to blockchain!');
-    }, 2000);
+    }
   };
 
   const getAflatoxinStatus = () => {
@@ -94,7 +173,7 @@ const Dashboard = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">AflaDry360 Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">IoT Dashboard</h1>
           <p className="text-gray-600">Real-time environmental monitoring and control system</p>
         </div>
 
@@ -109,18 +188,22 @@ const Dashboard = () => {
                   <WifiOff className="h-6 w-6 text-red-500" />
                 )}
                 <span className={`font-semibold ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
-                  {isConnected ? 'Connected to Server' : 'Disconnected'}
+                  {isConnected ? 'Connected to AflaDry360' : 'Disconnected'}
                 </span>
+                {isLoading && (
+                  <span className="text-sm text-gray-500 animate-pulse">Loading...</span>
+                )}
               </div>
               <button
                 onClick={handleConnect}
-                className={`px-4 py-2 rounded-md font-medium transition-colors ${
+                disabled={isLoading}
+                className={`px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50 ${
                   isConnected 
                     ? 'bg-red-500 hover:bg-red-600 text-white' 
                     : 'bg-blue-500 hover:bg-blue-600 text-white'
                 }`}
               >
-                {isConnected ? 'Disconnect' : 'Connect'}
+                {isLoading ? 'Connecting...' : (isConnected ? 'Disconnect' : 'Connect')}
               </button>
             </div>
           </div>
@@ -128,34 +211,70 @@ const Dashboard = () => {
 
         {/* Main Dashboard Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
           {/* Humidity-Temperature Graph */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">Temperature & Humidity Trends</h2>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={sensorData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="temperature" 
-                    stroke="#ef4444" 
-                    strokeWidth={2}
-                    name="Temperature (°C)"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="humidity" 
-                    stroke="#3b82f6" 
-                    strokeWidth={2}
-                    name="Humidity (%)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold mb-4 text-gray-800">Temperature & Humidity Trends</h2>
+              <div className="h-80">
+                {sensorData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={sensorData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="temperature" 
+                        stroke="#ef4444" 
+                        strokeWidth={2}
+                        name="Temperature (°C)"
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="humidity" 
+                        stroke="#3b82f6" 
+                        strokeWidth={2}
+                        name="Humidity (%)"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    {isConnected ? 'Loading data...' : 'Connect to view real-time data'}
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Moisture Content Graph */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold mb-4 text-gray-800">Moisture Content (%)</h2>
+              <div className="h-80">
+                {sensorData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={sensorData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis domain={[0, 100]} />
+                      <Tooltip />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="moisture_content" 
+                        stroke="#10b981" 
+                        strokeWidth={2}
+                        name="Moisture Content (%)"
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    {isConnected ? 'Loading data...' : 'Connect to view moisture content'}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -164,21 +283,34 @@ const Dashboard = () => {
             
             {/* Current Readings */}
             <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-800">Current Readings</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">Current Readings</h3>
+                <button
+                  onClick={fetchData}
+                  disabled={!isConnected || isLoading}
+                  className="px-3 py-1 text-sm bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-md disabled:opacity-50 transition-colors"
+                >
+                  {isLoading ? 'Loading...' : 'Refresh'}
+                </button>
+              </div>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Thermometer className="h-5 w-5 text-red-500" />
                     <span className="text-gray-600">Temperature</span>
                   </div>
-                  <span className="text-xl font-bold text-gray-800">{currentTemp}°C</span>
+                  <span className="text-xl font-bold text-gray-800">
+                    {isConnected && currentTemp > 0 ? `${currentTemp}°C` : '--°C'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Droplets className="h-5 w-5 text-blue-500" />
                     <span className="text-gray-600">Humidity</span>
                   </div>
-                  <span className="text-xl font-bold text-gray-800">{currentHumidity}%</span>
+                  <span className="text-xl font-bold text-gray-800">
+                    {isConnected && currentHumidity > 0 ? `${currentHumidity}%` : '--%'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -228,7 +360,9 @@ const Dashboard = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Current Level</span>
-                  <span className="text-xl font-bold text-gray-800">{aflatoxinLevel} ppb</span>
+                  <span className="text-xl font-bold text-gray-800">
+                    {isConnected && aflatoxinLevel > 0 ? `${aflatoxinLevel} ppb` : '-- ppb'}
+                  </span>
                 </div>
                 <div className={`flex items-center space-x-2 px-3 py-2 rounded-md ${aflatoxinStatus.bg}`}>
                   <AlertTriangle className={`h-4 w-4 ${aflatoxinStatus.color}`} />
@@ -247,7 +381,7 @@ const Dashboard = () => {
               <h3 className="text-lg font-semibold mb-4 text-gray-800">Data Management</h3>
               <button
                 onClick={handleUploadToBlockchain}
-                disabled={!isConnected || isUploading}
+                disabled={!isConnected || isUploading || sensorData.length === 0}
                 className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
               >
                 <Upload className={`h-5 w-5 ${isUploading ? 'animate-bounce' : ''}`} />
@@ -256,7 +390,8 @@ const Dashboard = () => {
                 </span>
               </button>
               <div className="mt-2 text-sm text-gray-500 text-center">
-                {!isConnected ? 'Connect to server first' : 'Secure data storage'}
+                {!isConnected ? 'Connect to server first' : 
+                 sensorData.length === 0 ? 'No data available' : 'Secure data storage'}
               </div>
             </div>
 
@@ -265,7 +400,11 @@ const Dashboard = () => {
 
         {/* Footer */}
         <div className="mt-8 text-center text-gray-500 text-sm">
-          Last updated: {new Date().toLocaleString()}
+          {lastFetch ? (
+            `Last data fetch: ${lastFetch.toLocaleString()}`
+          ) : (
+            `Dashboard initialized: ${new Date().toLocaleString()}`
+          )}
         </div>
       </div>
     </div>
