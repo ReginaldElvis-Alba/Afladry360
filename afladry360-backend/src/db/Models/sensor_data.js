@@ -12,6 +12,9 @@ const sensorDataModel = (sequelize, DataTypes)=>{
         },
         humidity:{
             type:DataTypes.STRING,
+        },
+        moisture_content:{
+            type:DataTypes.FLOAT
         }
     })
     return sensorData

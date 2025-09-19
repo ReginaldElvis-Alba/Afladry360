@@ -1,8 +1,12 @@
 import express from "express";
+import cors from "cors";
 import env from "dotenv"
 import mqtt from "mqtt";
 import database from "./db/index.js"
 import routes from "./api/v1/Routes/routes.js";
+import EMC from "./utils/gabMaizeEMC.js";
+
+const { gabMaizeEMC } = EMC;
 
 const { db } = database //sequelize database object
 
@@ -13,9 +17,15 @@ const port = process.env.PORT || 8080;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));//similar to body-parser
+//cors
+const corsOptions = {
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    optionsSuccessStatus: 200
+};
 
+app.use(cors(corsOptions));
 //routes
-app.use("/api/v1/",routes);
+app.use("/api/v1/", routes);
 
 // MQTT Configuration
 const MQTT_BROKER = process.env.MQTT_BROKER || 'mqtt://test.mosquitto.org:1883';
@@ -48,7 +58,7 @@ mqttClient.on('connect', () => {
 
     // Subscribe to both topics
     const topics = [SENSOR_TOPIC, STATUS_TOPIC];
-    
+
     topics.forEach(topic => {
         mqttClient.subscribe(topic, (err) => {
             if (err) {
@@ -105,16 +115,21 @@ mqttClient.on('reconnect', () => {
 // Handle sensor data messages
 async function handleSensorData(topic, data) {
     console.log('Processing sensor data...');
-    
+
     // Extract device ID - your ESP8266 should include deviceId in the JSON
     const deviceId = data.deviceId || 'AflaDry360_ESP8266';
-    
+
+    const EMC = gabMaizeEMC(data.humidity, data.temperature);
+
+    console.log(EMC);
+
     // Prepare data for database insertion
     const dbData = {
         deviceId: deviceId,
         timestamp: data.timestamp || new Date().toISOString(),
         temperature: data.temperature?.toString() || null,
-        humidity: data.humidity?.toString() || null
+        humidity: data.humidity?.toString() || null,
+        moisture_content: EMC.moistureContent.toString()
     };
 
     console.log('Prepared sensor data for DB:', dbData);
@@ -129,47 +144,14 @@ async function handleStatusData(topic, data) {
     console.log('Device:', data.device);
     console.log('Status:', data.status || data.type);
     console.log('RSSI:', data.wifi_rssi || data.rssi);
-    
+
     if (data.type === 'heartbeat') {
         console.log('Uptime:', data.uptime, 'ms');
         console.log('Free heap:', data.free_heap, 'bytes');
     }
-    
+
     // You can store status data in a separate table if needed
     // For now, just log it
-}
-
-// Helper function to extract device ID from topic or data (kept for compatibility)
-function extractDeviceId(topic, data) {
-    // Try to get device ID from the message data first
-    if (data.deviceId) {
-        return data.deviceId;
-    }
-
-    // For AflaDry360 topics, use the device name
-    if (topic.startsWith('AflaDry360/')) {
-        return 'AflaDry360_ESP8266';
-    }
-
-    // Extract from topic patterns
-    const topicParts = topic.split('/');
-
-    // Handle different topic patterns
-    if (topicParts[0] === 'sensors' && topicParts[1]) {
-        return topicParts[1]; // sensors/device123 -> device123
-    }
-
-    if (topicParts[0] === 'device' && topicParts[1]) {
-        return topicParts[1]; // device/device123/sensors -> device123
-    }
-
-    // For single topic, use a default device ID or extract from topic name
-    if (topic === MQTT_TOPIC) {
-        return 'default-sensor'; // or you can use the topic name itself
-    }
-
-    // Default fallback
-    return `topic_${topicParts.join('_')}`;
 }
 
 // Function to save sensor data to database
