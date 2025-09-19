@@ -57,7 +57,7 @@ void setup() {
 
 void loop() {
   String sensorData = getSensorData();
-  Serial.println(sensorData);
+  Serial.println("SENSOR_DATA:"+sensorData);
   delay(5000);
 }
 
