@@ -104,27 +104,28 @@ void loop() {
 void handleSensorData(String jsonData) {
   Serial.println("Received sensor data: " + jsonData);
 
-  // Validate JSON
+  // Parse JSON
   StaticJsonDocument<400> doc;
   DeserializationError error = deserializeJson(doc, jsonData);
-  doc["deviceId"] = "AflaDry360_ESP8266";  // Add device ID
-  serializeJson(doc, jsonData);
-
   if (error) {
     Serial.println("Failed to parse sensor data JSON");
     Serial.println("MQTT_ERROR");
     return;
   }
 
-  // Store the data
-  lastSensorData = jsonData;
+  // Add ESP8266 ID and reserialize
+  doc["deviceId"] = "AflaDry360_ESP8266";
+  String updatedJson;
+  serializeJson(doc, updatedJson);
 
   // Publish to MQTT
-  if (publishSensorData(jsonData)) {
-    Serial.println("MQTT_PUBLISHED");
-  } else {
-    Serial.println("MQTT_ERROR");
-  }
+  Serial.println("Publishing to MQTT topic: " + String(topic));
+  mqttClient.beginMessage(topic);
+  mqttClient.print(updatedJson);
+  mqttClient.endMessage();
+  mqttClient.poll();
+
+  Serial.println("MQTT_PUBLISHED");
 }
 
 bool publishSensorData(String data) {
