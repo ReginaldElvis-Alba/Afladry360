@@ -19,40 +19,38 @@ const Dashboard = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Replace with your actual API endpoint
       const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/all-data`);
-      console.log(response);
       const data = response.data;
 
       if (data && data.length > 0) {
-        // Process the API data
         const processedData = data.map(item => {
-          const timestamp = new Date(item.timestamp);
-          const timeStr = timestamp.getHours().toString().padStart(2, '0') + ':' +
-                         timestamp.getMinutes().toString().padStart(2, '0');
+          const createdAt = new Date(item.createdAt); // use DB timestamp
+          const timeStr = createdAt.getHours().toString().padStart(2, '0') + ':' +
+            createdAt.getMinutes().toString().padStart(2, '0');
+
+          // Combine channels into spectral array
+          const spectral = [
+            item.ch0, item.ch1, item.ch2, item.ch3, item.ch4, item.ch5,
+            item.ch6, item.ch7, item.ch8, item.ch9, item.ch10
+          ].map(v => parseInt(v) || 0);
 
           return {
             time: timeStr,
             temperature: parseFloat(item.temperature),
             humidity: parseFloat(item.humidity),
-             moisture_content: item.moisture_content ? parseFloat(item.moisture_content) * 100 : null,
-            timestamp: timestamp
+            moisture_content: item.moisture_content ? parseFloat(item.moisture_content) * 100 : null,
+            spectral_data: spectral,
+            timestamp: createdAt
           };
         });
 
-        // Sort by timestamp to ensure proper order
         processedData.sort((a, b) => a.timestamp - b.timestamp);
-
-        // Update chart data (keep last 20 points for better visualization)
         setSensorData(processedData.slice(-20));
 
-        // Update current readings with the latest data
         const latestReading = processedData[processedData.length - 1];
         if (latestReading) {
           setCurrentTemp(latestReading.temperature);
           setCurrentHumidity(latestReading.humidity);
-
-          // Calculate aflatoxin level based on temperature and humidity
           const aflatoxin = calculateAflatoxinLevel(latestReading.temperature, latestReading.humidity);
           setAflatoxinLevel(parseFloat(aflatoxin.toFixed(1)));
         }
@@ -61,11 +59,11 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
-      throw error;
     } finally {
       setIsLoading(false);
     }
   };
+
 
   // Calculate aflatoxin level based on temperature and humidity
   const calculateAflatoxinLevel = (temp, humidity) => {
@@ -82,7 +80,7 @@ const Dashboard = () => {
     if (isConnected) {
       // Fetch data immediately when connected
       fetchData().catch(console.error);
-      
+
       // Set up auto-refresh every 30 seconds
       interval = setInterval(() => {
         fetchData().catch(console.error);
@@ -132,7 +130,7 @@ const Dashboard = () => {
     }
 
     setIsUploading(true);
-    
+
     try {
       // Replace with your actual blockchain upload endpoint
       const response = await fetch('/api/blockchain/upload', {
@@ -197,11 +195,10 @@ const Dashboard = () => {
               <button
                 onClick={handleConnect}
                 disabled={isLoading}
-                className={`px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50 ${
-                  isConnected 
-                    ? 'bg-red-500 hover:bg-red-600 text-white' 
+                className={`px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50 ${isConnected
+                    ? 'bg-red-500 hover:bg-red-600 text-white'
                     : 'bg-blue-500 hover:bg-blue-600 text-white'
-                }`}
+                  }`}
               >
                 {isLoading ? 'Connecting...' : (isConnected ? 'Disconnect' : 'Connect')}
               </button>
@@ -224,17 +221,17 @@ const Dashboard = () => {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="temperature" 
-                        stroke="#ef4444" 
+                      <Line
+                        type="monotone"
+                        dataKey="temperature"
+                        stroke="#ef4444"
                         strokeWidth={2}
                         name="Temperature (°C)"
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="humidity" 
-                        stroke="#3b82f6" 
+                      <Line
+                        type="monotone"
+                        dataKey="humidity"
+                        stroke="#3b82f6"
                         strokeWidth={2}
                         name="Humidity (%)"
                       />
@@ -259,10 +256,10 @@ const Dashboard = () => {
                       <YAxis domain={[0, 100]} />
                       <Tooltip />
                       <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="moisture_content" 
-                        stroke="#10b981" 
+                      <Line
+                        type="monotone"
+                        dataKey="moisture_content"
+                        stroke="#10b981"
                         strokeWidth={2}
                         name="Moisture Content (%)"
                         dot={false}
@@ -278,9 +275,41 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {/* Spectral Data Graph */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">Spectral Intensity (AS7341)</h2>
+            <p className="text-sm text-gray-500 mb-2">
+              Tracking spectral reflectance — wavelengths near <strong>365 nm</strong> and <strong>630–670 nm</strong> are most sensitive to aflatoxin presence.
+            </p>
+            <div className="h-96">
+              {sensorData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={sensorData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="time" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    {/* Emphasize aflatoxin-sensitive wavelengths (Ch4 ~ 365 nm, Ch9 ~ 660 nm) */}
+                    <Line type="monotone" dataKey="spectral_data[4]" stroke="#f59e0b" strokeWidth={2} name="Ch4 (~365 nm)" dot={false} />
+                    <Line type="monotone" dataKey="spectral_data[9]" stroke="#dc2626" strokeWidth={2} name="Ch9 (~660 nm)" dot={false} />
+                    {/* Add optional reference channels for context */}
+                    <Line type="monotone" dataKey="spectral_data[3]" stroke="#6366f1" strokeWidth={1} name="Ch3 (~340 nm)" dot={false} />
+                    <Line type="monotone" dataKey="spectral_data[6]" stroke="#10b981" strokeWidth={1} name="Ch6 (~550 nm)" dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  {isConnected ? 'Loading spectral data...' : 'Connect to view spectral data'}
+                </div>
+              )}
+            </div>
+          </div>
+
+
           {/* Right Column - Controls and Metrics */}
           <div className="space-y-6">
-            
+
             {/* Current Readings */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex justify-between items-center mb-4">
@@ -326,16 +355,15 @@ const Dashboard = () => {
                   </div>
                   <button
                     onClick={handleFanToggle}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                      isFanOn 
-                        ? 'bg-green-500 hover:bg-green-600 text-white' 
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${isFanOn
+                        ? 'bg-green-500 hover:bg-green-600 text-white'
                         : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
-                    }`}
+                      }`}
                   >
                     {isFanOn ? 'ON' : 'OFF'}
                   </button>
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Speed</span>
@@ -390,8 +418,8 @@ const Dashboard = () => {
                 </span>
               </button>
               <div className="mt-2 text-sm text-gray-500 text-center">
-                {!isConnected ? 'Connect to server first' : 
-                 sensorData.length === 0 ? 'No data available' : 'Secure data storage'}
+                {!isConnected ? 'Connect to server first' :
+                  sensorData.length === 0 ? 'No data available' : 'Secure data storage'}
               </div>
             </div>
 
