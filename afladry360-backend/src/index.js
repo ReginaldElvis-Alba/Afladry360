@@ -43,7 +43,7 @@ const mqttOptions = {
 };
 
 //sync database
-await db.sequelize.sync({ force: false }).then(() => {
+await db.sequelize.sync({ force: true }).then(() => {
     console.log("Database synchronized...");
 }).catch((err) => {
     console.log(err);
@@ -114,29 +114,47 @@ mqttClient.on('reconnect', () => {
 
 // Handle sensor data messages
 async function handleSensorData(topic, data) {
-    console.log('Processing sensor data...');
+  console.log('Processing sensor data...');
 
-    // Extract device ID - your ESP8266 should include deviceId in the JSON
-    const deviceId = data.deviceId || 'AflaDry360_ESP8266';
+  // Extract device ID from incoming JSON (sent by ESP8266)
+  const deviceId = data.deviceId || 'AflaDry360_ESP8266';
 
-    const EMC = gabMaizeEMC(data.humidity, data.temperature);
+  // Compute Equilibrium Moisture Content (your function)
+  const EMC = gabMaizeEMC(data.humidity, data.temperature);
+  console.log('Computed EMC:', EMC);
 
-    console.log(EMC);
+  // Initialize base data fields
+  const dbData = {
+    deviceId: deviceId,
+    timestamp: data.timestamp || new Date().toISOString(),
+    temperature: data.temperature?.toString() || null,
+    humidity: data.humidity?.toString() || null,
+    moisture_content: EMC?.moistureContent?.toString() || null,
+    spectral_valid: data.spectral_valid || false,
+  };
 
-    // Prepare data for database insertion
-    const dbData = {
-        deviceId: deviceId,
-        timestamp: data.timestamp || new Date().toISOString(),
-        temperature: data.temperature?.toString() || null,
-        humidity: data.humidity?.toString() || null,
-        moisture_content: EMC.moistureContent.toString()
-    };
+  // ✅ Handle spectral data array (if included)
+  if (Array.isArray(data.spectral_data) && data.spectral_data.length >= 11) {
+    for (let i = 0; i < 11; i++) {
+      dbData[`ch${i}`] = parseInt(data.spectral_data[i]) || 0;
+    }
+  } else {
+    // Fill with nulls or zeros if missing
+    for (let i = 0; i < 11; i++) {
+      dbData[`ch${i}`] = null;
+    }
+  }
 
-    console.log('Prepared sensor data for DB:', dbData);
+  console.log('Prepared sensor data for DB:', dbData);
 
-    // Save to database
+  try {
     await saveSensorData(dbData);
+    console.log('Sensor data saved successfully.');
+  } catch (err) {
+    console.error('Error saving sensor data:', err);
+  }
 }
+
 
 // Handle status/heartbeat messages
 async function handleStatusData(topic, data) {
