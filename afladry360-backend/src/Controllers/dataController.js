@@ -10,4 +10,13 @@ const get_all_data = async (req, res) => {
     }
 }
 
-export default {get_all_data};
+const upload_to_blockchain = async (req,res)=>{
+    try{
+        await dataService.upload_to_blockchain(data)
+    }catch(e){
+        console.log(e);
+        res.status(500).send("Error uploading to blockchain!");
+    }
+}
+
+export default {get_all_data, upload_to_blockchain};

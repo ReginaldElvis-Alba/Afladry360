@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import axios from "axios";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Thermometer, Droplets, Fan, Upload, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
-import { afla_chain_backend } from '../../chain';
 
 const Dashboard = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -16,61 +15,12 @@ const Dashboard = () => {
   const [sensorData, setSensorData] = useState([]);
   const [lastFetch, setLastFetch] = useState(null);
 
-  // Function to fetch data from API
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/all-data`);
-      const data = response.data;
-
-      if (data && data.length > 0) {
-        const processedData = data.map(item => {
-          const createdAt = new Date(item.createdAt); // use DB timestamp
-          const timeStr = createdAt.getHours().toString().padStart(2, '0') + ':' +
-            createdAt.getMinutes().toString().padStart(2, '0');
-
-          // Combine channels into spectral array
-          const spectral = [
-            item.ch0, item.ch1, item.ch2, item.ch3, item.ch4, item.ch5,
-            item.ch6, item.ch7, item.ch8, item.ch9, item.ch10
-          ].map(v => parseInt(v) || 0);
-
-          return {
-            time: timeStr,
-            temperature: parseFloat(item.temperature),
-            humidity: parseFloat(item.humidity),
-            moisture_content: item.moisture_content ? parseFloat(item.moisture_content) * 100 : null,
-            spectral_data: spectral,
-            timestamp: createdAt
-          };
-        });
-
-        processedData.sort((a, b) => a.timestamp - b.timestamp);
-        setSensorData(processedData.slice(-20));
-
-        const latestReading = processedData[processedData.length - 1];
-        if (latestReading) {
-          setCurrentTemp(latestReading.temperature);
-          setCurrentHumidity(latestReading.humidity);
-          const aflatoxin = calculateAflatoxinLevel(latestReading.temperature, latestReading.humidity);
-          setAflatoxinLevel(parseFloat(aflatoxin.toFixed(1)));
-        }
-
-        setLastFetch(new Date());
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   //fetch from blockchain
   const fetchBlockchainData = async () => {
     const data = await afla_chain_backend.fetch_data();
     console.log(data);
   }
-
 
   // Calculate aflatoxin level based on temperature and humidity
   const calculateAflatoxinLevel = (temp, humidity) => {
@@ -139,27 +89,29 @@ const Dashboard = () => {
     setIsUploading(true);
 
     try {
-      // Replace with your actual blockchain upload endpoint
-      const response = await fetch('/api/blockchain/upload', {
+      const response = await fetch('/api/v1/data/upload-blockchain', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sensorData: sensorData,
-          timestamp: new Date().toISOString(),
-          deviceId: 'AflaDry360_ESP8266'
-        })
+        }
       });
 
-      if (response.ok) {
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Fetch latest data to update UI
+        await fetchData();
         alert('Data successfully uploaded to blockchain!');
       } else {
-        throw new Error('Upload failed');
+        throw new Error(result.message || 'Upload failed');
       }
     } catch (error) {
       console.error('Blockchain upload failed:', error);
-      alert('Failed to upload to blockchain. Please try again.');
+      alert(`Failed to upload to blockchain: ${error.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -424,13 +376,7 @@ const Dashboard = () => {
                   {isUploading ? 'Uploading...' : 'Upload to Blockchain'}
                 </span>
               </button>
-              <button 
-                onClick={fetchBlockchainData}
-                className="w-full mt-2 flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
-              >
-                <span>Fetch Blockchain Data</span>
-              </button>
-
+              
               <div className="mt-2 text-sm text-gray-500 text-center">
                 {!isConnected ? 'Connect to server first' :
                   sensorData.length === 0 ? 'No data available' : 'Secure data storage'}
