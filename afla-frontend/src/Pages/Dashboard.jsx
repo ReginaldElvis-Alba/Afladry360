@@ -67,7 +67,7 @@ const Dashboard = () => {
 
   //fetch from blockchain
   const fetchBlockchainData = async () => {
-    const data = await afla_chain_backend.fetchData();
+    const data = await afla_chain_backend.fetch_data();
     console.log(data);
   }
 
@@ -411,15 +411,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-
-
-            <div>
-              {/* Test */}
-              <button onClick={() => fetchBlockchainData}>Fetch Data</button>
-            </div>
-
-
-
             {/* Blockchain Upload */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <h3 className="text-lg font-semibold mb-4 text-gray-800">Data Management</h3>
@@ -433,6 +424,13 @@ const Dashboard = () => {
                   {isUploading ? 'Uploading...' : 'Upload to Blockchain'}
                 </span>
               </button>
+              <button 
+                onClick={fetchBlockchainData}
+                className="w-full mt-2 flex items-center justify-center space-x-2 px-4 py-3 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
+              >
+                <span>Fetch Blockchain Data</span>
+              </button>
+
               <div className="mt-2 text-sm text-gray-500 text-center">
                 {!isConnected ? 'Connect to server first' :
                   sensorData.length === 0 ? 'No data available' : 'Secure data storage'}
