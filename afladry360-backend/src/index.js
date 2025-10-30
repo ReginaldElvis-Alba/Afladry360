@@ -43,7 +43,7 @@ const mqttOptions = {
 };
 
 //sync database
-await db.sequelize.sync({ force: true }).then(() => {
+await db.sequelize.sync({ force: false }).then(() => {
     console.log("Database synchronized...");
 }).catch((err) => {
     console.log(err);
