@@ -1,5 +1,5 @@
 import database from "../db/index.js";
-import { afla_chain_backend } from '../chain';
+import { afla_chain_backend } from '../chain/index.js';
 const { db } = database;
 const SensorData = db.SensorData;
 
@@ -56,9 +56,11 @@ const upload_to_blockchain = async () => {
             try {
                 // Fetch existing data from chain for this device
                 const existingData = await afla_chain_backend.fetch_data(deviceId);
+                //console.log('existing data',existingData);
                 
                 // Find records that don't exist in chain yet
                 // Using record ID for comparison
+
                 const existingIds = new Set(existingData.map(d => d.id));
                 const newData = deviceGroups[deviceId].filter(record => 
                     !existingIds.has(record.id)
@@ -67,12 +69,16 @@ const upload_to_blockchain = async () => {
                 if (newData.length > 0) {
                     // Upload new data chunks to chain
                     await afla_chain_backend.upload_data(deviceId, newData);
-                    console.log(`Uploaded ${newData.length} new records for device ${deviceId}`);
+                    return(`Uploaded ${newData.length} new records for device ${deviceId}`);
+                }else{
+                    return("No new data to upload! The blockchain is up to date!")
                 }
+
             } catch (error) {
                 console.error(`Failed to process device ${deviceId}:`, error);
                 // Continue with other devices even if one fails
             }
+
         }
     } catch (e) {
         console.error('Upload to blockchain failed:', e);

@@ -12,7 +12,8 @@ const get_all_data = async (req, res) => {
 
 const upload_to_blockchain = async (req,res)=>{
     try{
-        await dataService.upload_to_blockchain(data)
+        const result = await dataService.upload_to_blockchain();
+        res.status(200).send({response:result});
     }catch(e){
         console.log(e);
         res.status(500).send("Error uploading to blockchain!");
