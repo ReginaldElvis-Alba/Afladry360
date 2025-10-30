@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from "axios";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Thermometer, Droplets, Fan, Upload, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { afla_chain_backend } from '../../chain';
 
 const Dashboard = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -63,6 +64,12 @@ const Dashboard = () => {
       setIsLoading(false);
     }
   };
+
+  //fetch from blockchain
+  const fetchBlockchainData = async () => {
+    const data = await afla_chain_backend.fetchData();
+    console.log(data);
+  }
 
 
   // Calculate aflatoxin level based on temperature and humidity
@@ -196,8 +203,8 @@ const Dashboard = () => {
                 onClick={handleConnect}
                 disabled={isLoading}
                 className={`px-4 py-2 rounded-md font-medium transition-colors disabled:opacity-50 ${isConnected
-                    ? 'bg-red-500 hover:bg-red-600 text-white'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  ? 'bg-red-500 hover:bg-red-600 text-white'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
                   }`}
               >
                 {isLoading ? 'Connecting...' : (isConnected ? 'Disconnect' : 'Connect')}
@@ -356,8 +363,8 @@ const Dashboard = () => {
                   <button
                     onClick={handleFanToggle}
                     className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${isFanOn
-                        ? 'bg-green-500 hover:bg-green-600 text-white'
-                        : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
                       }`}
                   >
                     {isFanOn ? 'ON' : 'OFF'}
@@ -403,6 +410,15 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
+
+
+
+            <div>
+              {/* Test */}
+              <button onClick={() => fetchBlockchainData}>Fetch Data</button>
+            </div>
+
+
 
             {/* Blockchain Upload */}
             <div className="bg-white rounded-lg shadow-md p-6">
