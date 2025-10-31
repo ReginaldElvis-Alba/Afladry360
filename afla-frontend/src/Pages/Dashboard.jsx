@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from "axios";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Thermometer, Droplets, Fan, Upload, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import QRCode from 'react-qr-code';
 
 const Dashboard = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -302,8 +303,13 @@ const Dashboard = () => {
           {/* Right Column - Controls and Metrics */}
           <div className="space-y-6">
 
-            {/* Current Readings */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            {/* Layout: main controls column + QR code side column (responsive) */}
+            <div className="flex flex-col lg:flex-row lg:items-start lg:space-x-4">
+
+              {/* Main controls/metrics stack */}
+              <div className="flex-1 space-y-6">
+                {/* Current Readings */}
+                <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">Current Readings</h3>
                 <button
@@ -335,84 +341,93 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
+                {/* Fan Control */}
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Fan Control</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Fan className={`h-5 w-5 ${isFanOn ? 'text-green-500 animate-spin' : 'text-gray-400'}`} />
+                        <span className="text-gray-600">Fan Status</span>
+                      </div>
+                      <button
+                        onClick={handleFanToggle}
+                        className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${isFanOn
+                          ? 'bg-green-500 hover:bg-green-600 text-white'
+                          : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                          }`}
+                      >
+                        {isFanOn ? 'ON' : 'OFF'}
+                      </button>
+                    </div>
 
-            {/* Fan Control */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-800">Fan Control</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Fan className={`h-5 w-5 ${isFanOn ? 'text-green-500 animate-spin' : 'text-gray-400'}`} />
-                    <span className="text-gray-600">Fan Status</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Speed</span>
+                        <span className="text-sm font-medium">{fanSpeed}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={fanSpeed}
+                        onChange={handleFanSpeedChange}
+                        disabled={!isFanOn}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
+                      />
+                    </div>
                   </div>
+                </div>
+
+                {/* Aflatoxin Levels */}
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Aflatoxin Levels</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Current Level</span>
+                      <span className="text-xl font-bold text-gray-800">
+                        {isConnected && aflatoxinLevel > 0 ? `${aflatoxinLevel} ppb` : '-- ppb'}
+                      </span>
+                    </div>
+                    <div className={`flex items-center space-x-2 px-3 py-2 rounded-md ${aflatoxinStatus.bg}`}>
+                      <AlertTriangle className={`h-4 w-4 ${aflatoxinStatus.color}`} />
+                      <span className={`font-medium ${aflatoxinStatus.color}`}>
+                        {aflatoxinStatus.status}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Safe: &lt;10 ppb | Moderate: 10-20 ppb | High: &gt;20 ppb
+                    </div>
+                  </div>
+                </div>
+
+                {/* Blockchain Upload */}
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-800">Data Management</h3>
                   <button
-                    onClick={handleFanToggle}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${isFanOn
-                      ? 'bg-green-500 hover:bg-green-600 text-white'
-                      : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
-                      }`}
+                    onClick={handleUploadToBlockchain}
+                    disabled={!isConnected || isUploading || sensorData.length === 0}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
                   >
-                    {isFanOn ? 'ON' : 'OFF'}
+                    <Upload className={`h-5 w-5 ${isUploading ? 'animate-bounce' : ''}`} />
+                    <span>
+                      {isUploading ? 'Uploading...' : 'Upload to Blockchain'}
+                    </span>
                   </button>
-                </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Speed</span>
-                    <span className="text-sm font-medium">{fanSpeed}%</span>
+                  <div className="mt-2 text-sm text-gray-500 text-center">
+                    {!isConnected ? 'Connect to server first' :
+                      sensorData.length === 0 ? 'No data available' : 'Secure data storage'}
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={fanSpeed}
-                    onChange={handleFanSpeedChange}
-                    disabled={!isFanOn}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer disabled:opacity-50"
-                  />
                 </div>
               </div>
-            </div>
 
-            {/* Aflatoxin Levels */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-800">Aflatoxin Levels</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Current Level</span>
-                  <span className="text-xl font-bold text-gray-800">
-                    {isConnected && aflatoxinLevel > 0 ? `${aflatoxinLevel} ppb` : '-- ppb'}
-                  </span>
+              {/* QR Code side column */}
+              <div className="mt-4 lg:mt-0 w-full lg:w-48 flex-shrink-0 flex items-center justify-center">
+                <div className="bg-white rounded-lg shadow-md p-4 flex flex-col items-center">
+                  <span className="text-sm text-gray-600 mb-2">Blockchain interface Link</span>
+                  <QRCode value="https://dashboard.internetcomputer.org/canister/rwzqi-tyaaa-aaaae-acf5a-cai" size={128} />
                 </div>
-                <div className={`flex items-center space-x-2 px-3 py-2 rounded-md ${aflatoxinStatus.bg}`}>
-                  <AlertTriangle className={`h-4 w-4 ${aflatoxinStatus.color}`} />
-                  <span className={`font-medium ${aflatoxinStatus.color}`}>
-                    {aflatoxinStatus.status}
-                  </span>
-                </div>
-                <div className="text-sm text-gray-500">
-                  Safe: &lt;10 ppb | Moderate: 10-20 ppb | High: &gt;20 ppb
-                </div>
-              </div>
-            </div>
-
-            {/* Blockchain Upload */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-800">Data Management</h3>
-              <button
-                onClick={handleUploadToBlockchain}
-                disabled={!isConnected || isUploading || sensorData.length === 0}
-                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors"
-              >
-                <Upload className={`h-5 w-5 ${isUploading ? 'animate-bounce' : ''}`} />
-                <span>
-                  {isUploading ? 'Uploading...' : 'Upload to Blockchain'}
-                </span>
-              </button>
-
-              <div className="mt-2 text-sm text-gray-500 text-center">
-                {!isConnected ? 'Connect to server first' :
-                  sensorData.length === 0 ? 'No data available' : 'Secure data storage'}
               </div>
             </div>
 
